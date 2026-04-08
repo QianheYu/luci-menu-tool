@@ -138,10 +138,21 @@ class Validator:
 
         # 检查排序值
         if change.new_order is not None:
-            if not isinstance(change.new_order, int):
+            # 尝试将字符串转换为整数
+            order_value = change.new_order
+            if isinstance(order_value, str):
+                try:
+                    order_value = int(order_value)
+                    # 自动更新 change 对象的值为整数
+                    change.new_order = order_value
+                except (ValueError, TypeError):
+                    result.add_error(f"{prefix}: 排序值必须是整数，当前为 '{change.new_order}' (无法转换)")
+                    return result
+
+            if not isinstance(order_value, int):
                 result.add_error(f"{prefix}: 排序值必须是整数，当前为 {type(change.new_order)}")
-            elif change.new_order < 0:
-                result.add_warning(f"{prefix}: 排序值为负数 '{change.new_order}'")
+            elif order_value < 0:
+                result.add_warning(f"{prefix}: 排序值为负数 '{order_value}'")
 
         # 检查别名
         if change.new_alias:
