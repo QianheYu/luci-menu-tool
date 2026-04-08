@@ -1,7 +1,10 @@
+
 import sys
 import json
 from pathlib import Path
-sys.path.insert(0, '.')
+
+# 确保父目录在路径中，以便导入LuciMenuTool
+sys.path.insert(0, '../..')
 
 from LuciMenuTool.main import _extract_changes
 from LuciMenuTool.lua_controller.applier import LuaControllerApplier
@@ -26,7 +29,7 @@ for change in changes:
     print(f"  - {change.old_path}: order={change.new_order}")
 
 # Apply changes
-source_path = Path('./test_lede/feeds/luci/applications/luci-app-cpulimit') / file_path
+source_path = Path('../../test_lede/feeds/luci/applications/luci-app-cpulimit') / file_path
 print(f"Source path: {source_path}")
 print(f"File exists: {source_path.exists()}")
 

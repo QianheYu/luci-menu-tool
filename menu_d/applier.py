@@ -16,6 +16,11 @@ class MenuDApplier(BaseApplier):
         except (json.JSONDecodeError, OSError):
             return
 
+        # Clean up duplicate markers in titles
+        for change in changes:
+            if change.new_title is not None:
+                change.new_title = self._clean_duplicate_markers(change.new_title)
+
         content = original_content
         modified = False
 
@@ -220,3 +225,32 @@ class MenuDApplier(BaseApplier):
         if re.search(r'":\s+"', content):
             return (", ", ": ")
         return (",", ":")
+
+    def _clean_duplicate_markers(self, title: str) -> str:
+        """Remove duplicate markers from title.
+
+        For example, if title is "Title (Modified) (Modified)",
+        return "Title (Modified)".
+        """
+        if not title:
+            return title
+
+        # Common markers that might be duplicated
+        markers = [
+            r'\(Modified\)',
+            r'\(已修改\)',
+            r'\(Updated\)',
+            r'\(已更新\)',
+        ]
+
+        # Remove duplicates for each marker
+        for marker in markers:
+            # If marker appears multiple times, keep only the first occurrence
+            pattern = rf'({marker})\s*({marker})+'
+            title = re.sub(pattern, r'\g<1>', title)
+
+        # Remove consecutive duplicate markers
+        pattern = r'(\([^)]+\))\s*\1+'
+        title = re.sub(pattern, r'\g<1>', title)
+
+        return title

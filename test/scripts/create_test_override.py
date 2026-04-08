@@ -2,7 +2,7 @@
 import json
 
 # 读取导出的文件
-with open("/tmp/menu_export.json", "r", encoding="utf-8") as f:
+with open("../../menu_export.json", "r", encoding="utf-8") as f:
     data = json.load(f)
 
 # 选择几个包进行修改

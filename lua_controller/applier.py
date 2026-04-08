@@ -199,6 +199,10 @@ class LuaControllerApplier(BaseApplier):
         if not change.new_path and not change.new_alias and change.new_title is None and change.new_order is None:
             return original_text
 
+        # Clean up duplicate markers in title
+        if change.new_title is not None:
+            change.new_title = self._clean_duplicate_markers(change.new_title)
+
         local_edits: List[Tuple[int, int, str]] = []
 
         # Update path tokens inside the Table arg
@@ -325,4 +329,31 @@ class LuaControllerApplier(BaseApplier):
                     edits.append((line_offset + m.start(2), line_offset + m.end(2), str(matching_change.new_order)))
                     break
 
-        return edits
+    def _clean_duplicate_markers(self, title: str) -> str:
+        """Remove duplicate markers from title.
+
+        For example, if title is "Title (Modified) (Modified)",
+        return "Title (Modified)".
+        """
+        if not title:
+            return title
+
+        # Common markers that might be duplicated
+        markers = [
+            r'\(Modified\)',
+            r'\(已修改\)',
+            r'\(Updated\)',
+            r'\(已更新\)',
+        ]
+
+        # Remove duplicates for each marker
+        for marker in markers:
+            # If marker appears multiple times, keep only the first occurrence
+            pattern = rf'({marker})\s*({marker})+'
+            title = re.sub(pattern, r'\g<1>', title)
+
+        # Remove consecutive duplicate markers
+        pattern = r'(\([^)]+\))\s*\1+'
+        title = re.sub(pattern, r'\g<1>', title)
+
+        return title
