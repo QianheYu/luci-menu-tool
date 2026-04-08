@@ -99,7 +99,7 @@ class LuaControllerApplier(BaseApplier):
                         path_parts.append(s)
                     elif isinstance(val, Name) and val.id in variables:
                         path_parts.append(variables[val.id])
-                    elif isinstance(val, BinaryOp) and isinstance(val.op, Concat):
+                    elif isinstance(val, BinaryOp) and hasattr(val, 'op') and isinstance(val.op, Concat):
                         # 处理字符串拼接
                         concat_result = self._resolve_concat_expression(val, variables)
                         if concat_result:
@@ -262,7 +262,7 @@ class LuaControllerApplier(BaseApplier):
                 path_parts.append(s)
             elif isinstance(val, Name) and val.id in variables:
                 path_parts.append(variables[val.id])
-            elif isinstance(val, BinaryOp) and isinstance(val.op, Concat):
+            elif isinstance(val, BinaryOp) and hasattr(val, 'op') and isinstance(val.op, Concat):
                 # 处理字符串拼接
                 concat_result = self._resolve_concat_expression(val, variables)
                 if concat_result:
