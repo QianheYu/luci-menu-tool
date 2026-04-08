@@ -1,14 +1,27 @@
 import re
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict
+from dataclasses import dataclass
 
 from luaparser import ast
 from luaparser.astnodes import (
-    Call, Name, Table, String, Number, Field, UMinusOp, LocalAssign, Assign
+    Call, Name, Table, String, Number, Field, UMinusOp, LocalAssign, Assign, 
+    BinaryOp, Concat
 )
 
 from LuciMenuTool.core.base import BaseApplier
 from LuciMenuTool.core.models import Change
+
+
+@dataclass
+class EntryInfo:
+    """Entry 信息，用于精确定位"""
+    node: Call
+    path: str
+    line: int
+    column: int
+    var_name: Optional[str] = None
+    is_resolvable: bool = True
 
 
 class LuaControllerApplier(BaseApplier):
@@ -27,15 +40,18 @@ class LuaControllerApplier(BaseApplier):
         # Store on self so _generate_new_entry_code can access it
         self._variables = variables
 
+        # 收集所有 entry 信息，用于更精确的匹配
+        entries_info = self._collect_entries_info(tree, variables, content)
+
         # Expand path changes: cascade root path renames to all child entries
-        expanded_changes = self._expand_path_changes(changes, tree, variables)
+        expanded_changes = self._expand_path_changes(changes, entries_info)
 
         edits: List[Tuple[int, int, str]] = []
 
         for node in ast.walk(tree):
             if isinstance(node, Call) and isinstance(node.func, Name):
                 if node.func.id == "entry":
-                    edits.extend(self._find_entry_edits(content, node, expanded_changes, variables))
+                    edits.extend(self._find_entry_edits(content, node, expanded_changes, variables, entries_info))
                 elif node.func.id == "node":
                     edits.extend(self._find_node_edits(content, node, expanded_changes))
 
@@ -48,29 +64,128 @@ class LuaControllerApplier(BaseApplier):
 
         source_path.write_text(content, encoding="utf-8")
 
-    def _expand_path_changes(self, changes: List[Change], tree, variables: Dict[str, str]) -> List[Change]:
-        """For each change that renames a path, cascade to all child entries sharing the old prefix."""
-        # Collect all fully-resolvable entry paths present in the file
-        all_file_paths: set = set()
+    def _collect_entries_info(self, tree, variables: Dict[str, str], content: str) -> Dict[str, EntryInfo]:
+        """收集所有 entry 的详细信息
+
+        Args:
+            tree: AST 树
+            variables: 变量字典
+            content: 文件内容
+
+        Returns:
+            路径到 EntryInfo 的映射
+        """
+        entries_info = {}
+
         for node in ast.walk(tree):
             if isinstance(node, Call) and isinstance(node.func, Name) and node.func.id == "entry":
-                if node.args and isinstance(node.args[0], Table):
-                    parts = []
-                    ok = True
-                    for field in node.args[0].fields:
-                        val = field.value if isinstance(field, Field) else field
-                        if isinstance(val, String):
-                            s = val.s
-                            if isinstance(s, bytes):
-                                s = s.decode("utf-8", errors="ignore")
-                            parts.append(s)
-                        elif isinstance(val, Name) and val.id in variables:
-                            parts.append(variables[val.id])
+                if not node.args:
+                    continue
+
+                path_arg = node.args[0]
+                if not isinstance(path_arg, Table):
+                    continue
+
+                # 尝试解析路径
+                path_parts = []
+                is_resolvable = True
+
+                for field in path_arg.fields:
+                    val = field.value if isinstance(field, Field) else field
+                    if isinstance(val, String):
+                        s = val.s
+                        if isinstance(s, bytes):
+                            s = s.decode("utf-8", errors="ignore")
+                        path_parts.append(s)
+                    elif isinstance(val, Name) and val.id in variables:
+                        path_parts.append(variables[val.id])
+                    elif isinstance(val, BinaryOp) and isinstance(val.op, Concat):
+                        # 处理字符串拼接
+                        concat_result = self._resolve_concat_expression(val, variables)
+                        if concat_result:
+                            path_parts.append(concat_result)
                         else:
-                            ok = False
+                            is_resolvable = False
                             break
-                    if ok and parts:
-                        all_file_paths.add("/".join(parts))
+                    else:
+                        is_resolvable = False
+                        break
+
+                if is_resolvable and path_parts:
+                    path = "/".join(path_parts)
+
+                    # 获取位置信息
+                    line = node.first_token.line if node.first_token else 0
+                    column = node.first_token.column if node.first_token else 0
+
+                    # 检查是否被赋值给变量
+                    var_name = None
+                    if line > 0:
+                        lines = content.split("\n")
+                        if line <= len(lines):
+                            current_line = lines[line - 1]
+                            assign_match = re.search(r'(?:local\s+)?(\w+)\s*=\s*entry\s*\(', current_line)
+                            if assign_match:
+                                var_name = assign_match.group(1)
+
+                    entries_info[path] = EntryInfo(
+                        node=node,
+                        path=path,
+                        line=line,
+                        column=column,
+                        var_name=var_name,
+                        is_resolvable=is_resolvable
+                    )
+
+        return entries_info
+
+    def _resolve_concat_expression(self, node: BinaryOp, variables: Dict[str, str]) -> Optional[str]:
+        """解析字符串拼接表达式
+
+        Args:
+            node: 二元操作节点
+            variables: 变量字典
+
+        Returns:
+            解析后的字符串，如果无法解析则返回 None
+        """
+        if not isinstance(node.op, Concat):
+            return None
+
+        # 递归解析左右操作数
+        left = self._resolve_value(node.left, variables)
+        right = self._resolve_value(node.right, variables)
+
+        if left is not None and right is not None:
+            return left + right
+
+        return None
+
+    def _resolve_value(self, node, variables: Dict[str, str]) -> Optional[str]:
+        """解析节点值
+
+        Args:
+            node: AST 节点
+            variables: 变量字典
+
+        Returns:
+            解析后的字符串，如果无法解析则返回 None
+        """
+        if isinstance(node, String):
+            s = node.s
+            if isinstance(s, bytes):
+                s = s.decode("utf-8", errors="ignore")
+            return s
+        elif isinstance(node, Name) and node.id in variables:
+            return variables[node.id]
+        elif isinstance(node, BinaryOp) and isinstance(node.op, Concat):
+            return self._resolve_concat_expression(node, variables)
+
+        return None
+
+    def _expand_path_changes(self, changes: List[Change], entries_info: Dict[str, EntryInfo]) -> List[Change]:
+        """For each change that renames a path, cascade to all child entries sharing the old prefix."""
+        all_file_paths = set(entries_info.keys())
 
         expanded = list(changes)
         for change in changes:
@@ -124,7 +239,8 @@ class LuaControllerApplier(BaseApplier):
 
         return None
 
-    def _find_entry_edits(self, content: str, node: Call, changes: List[Change], variables: Dict[str, str]) -> List[Tuple[int, int, str]]:
+    def _find_entry_edits(self, content: str, node: Call, changes: List[Change], 
+                         variables: Dict[str, str], entries_info: Dict[str, EntryInfo]) -> List[Tuple[int, int, str]]:
         import re
         edits: List[Tuple[int, int, str]] = []
 
@@ -146,12 +262,23 @@ class LuaControllerApplier(BaseApplier):
                 path_parts.append(s)
             elif isinstance(val, Name) and val.id in variables:
                 path_parts.append(variables[val.id])
+            elif isinstance(val, BinaryOp) and isinstance(val.op, Concat):
+                # 处理字符串拼接
+                concat_result = self._resolve_concat_expression(val, variables)
+                if concat_result:
+                    path_parts.append(concat_result)
+                else:
+                    return edits  # unresolvable token — skip
             else:
-                return edits  # unresolvable token (concat, etc.) — skip
+                return edits  # unresolvable token — skip
 
         current_path = "/".join(path_parts)
 
-        matching_change = next((c for c in changes if c.old_path == current_path), None)
+        # 使用 entries_info 进行更精确的匹配
+        matching_change = None
+        if current_path in entries_info:
+            matching_change = next((c for c in changes if c.old_path == current_path), None)
+
         if not matching_change:
             return edits
 
