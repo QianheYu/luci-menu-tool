@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from LuciMenuTool.main import scan_feed, export_packages, apply_override
 
-FEED_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_lede", "feeds", "luci", "applications")
+FEED_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "test_lede", "feeds", "luci", "applications")
 EXPORT_FILE = "/tmp/test_apply_export.json"
 MODIFIED_FILE = "/tmp/test_apply_modified.json"
 BACKUP_DIR = "/tmp/test_apply_backup"
