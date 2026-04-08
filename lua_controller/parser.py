@@ -44,6 +44,8 @@ class LuaControllerParser(BaseParser):
     def parse(self, source_path: Path) -> List[MenuEntry]:
         try:
             content = source_path.read_text(encoding="utf-8", errors="ignore")
+            # Remove unnecessary escape slashes in strings (e.g., \/ -> /)
+            content = re.sub(r'\\/', '/', content)
         except OSError:
             return []
 
