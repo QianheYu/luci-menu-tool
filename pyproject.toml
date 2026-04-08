@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "luci-menu-tool"
+version = "0.1.0"
+description = "LuCI Menu Path and Priority Tool for OpenWrt/LEDE firmware customization"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "OpenWrt Community", email = "openwrt-devel@lists.openwrt.org"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "luaparser>=3.1",
+    "lark>=1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=23.0",
+    "isort>=5.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/openwrt/luci"
+Repository = "https://github.com/openwrt/luci"
+
+[project.scripts]
+luci-menu-tool = "LuciMenuTool.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["LuciMenuTool*"]
+exclude = ["tests*", "test_lede*"]
