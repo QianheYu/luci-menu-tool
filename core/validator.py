@@ -41,12 +41,12 @@ class Validator:
         """
         self.logger = logger or get_logger()
 
-    def validate_changes(self, changes: List[Change], existing_paths: List[str] = None) -> ValidationResult:
+    def validate_changes(self, changes: List[Change], existing_paths: Dict[str, str] = None) -> ValidationResult:
         """验证修改列表
 
         Args:
             changes: 修改列表
-            existing_paths: 已存在的路径列表（用于检测路径冲突）
+            existing_paths: 已存在的路径到包名的映射字典（用于检测路径冲突）
 
         Returns:
             ValidationResult 验证结果
@@ -73,33 +73,35 @@ class Validator:
 
         return result
 
-    def _check_path_conflicts(self, changes: List[Change], existing_paths: List[str]) -> List[str]:
+    def _check_path_conflicts(self, changes: List[Change], existing_paths: Dict[str, str]) -> List[str]:
         """检查路径冲突
 
         Args:
             changes: 修改列表
-            existing_paths: 已存在的路径列表
+            existing_paths: 已存在的路径到包名的映射字典
 
         Returns:
             冲突信息列表
         """
         conflicts = []
-        existing_set = set(existing_paths)
+        existing_set = set(existing_paths.keys())
 
         for change in changes:
             if change.new_path:
                 # 检查新路径是否已存在
                 if change.new_path in existing_set and change.new_path != change.old_path:
+                    conflicting_pkg = existing_paths[change.new_path]
                     conflicts.append(
-                        f"路径冲突: 新路径 '{change.new_path}' 已存在 "
+                        f"路径冲突: 新路径 '{change.new_path}' 已被包 '{conflicting_pkg}' 使用 "
                         f"(原路径: '{change.old_path}')"
                     )
 
                 # 检查新路径是否是其他路径的父路径
                 for existing in existing_set:
                     if existing != change.new_path and existing.startswith(change.new_path + "/"):
+                        conflicting_pkg = existing_paths[existing]
                         conflicts.append(
-                            f"路径冲突: 新路径 '{change.new_path}' 是已存在路径 '{existing}' 的父路径 "
+                            f"路径冲突: 新路径 '{change.new_path}' 是包 '{conflicting_pkg}' 的路径 '{existing}' 的父路径 "
                             f"(原路径: '{change.old_path}')"
                         )
 
@@ -177,9 +179,10 @@ class Validator:
         if " " in path:
             return False
 
-        # 检查是否包含特殊字符（除了 / 和 - 和 _）
+        # 检查是否包含特殊字符（除了 / 和 - 和 _ 和 *）
+        # * 是合法的通配符，用于 menu.d JSON 文件中匹配子路径
         import re
-        if re.search(r'[^a-zA-Z0-9_\-/]', path):
+        if re.search(r'[^a-zA-Z0-9_\-*/]', path):
             return False
 
         # 检查是否以 / 开头或结尾（不应该）
@@ -189,6 +192,18 @@ class Validator:
         # 检查是否包含连续的 /
         if "//" in path:
             return False
+
+        # 检查通配符 * 的使用是否合理
+        # 通配符只能出现在路径的最后一段，并且必须是该段的唯一字符
+        if "*" in path:
+            parts = path.split("/")
+            last_part = parts[-1]
+            # 通配符不能是路径的一部分，只能是单独的 *
+            if last_part != "*":
+                return False
+            # 通配符不能出现在中间段
+            if any("*" in part for part in parts[:-1]):
+                return False
 
         return True
 

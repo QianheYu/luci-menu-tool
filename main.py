@@ -489,7 +489,7 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
         print(f"Failed: {failed} packages")
 
 
-def _collect_all_paths(feed_dir: Path, overrides: Dict, logger) -> List[str]:
+def _collect_all_paths(feed_dir: Path, overrides: Dict, logger) -> Dict[str, str]:
     """收集所有已存在的路径，用于检测冲突
 
     Args:
@@ -498,9 +498,9 @@ def _collect_all_paths(feed_dir: Path, overrides: Dict, logger) -> List[str]:
         logger: 日志记录器
 
     Returns:
-        所有路径的列表
+        路径到包名的映射字典
     """
-    all_paths = []
+    all_paths = {}
 
     for pkg_name, override in overrides.items():
         pkg_dir = feed_dir / pkg_name
@@ -511,12 +511,12 @@ def _collect_all_paths(feed_dir: Path, overrides: Dict, logger) -> List[str]:
         for tree in menu_trees:
             root_path = tree.get("root_path", "")
             if root_path:
-                all_paths.append(root_path)
+                all_paths[root_path] = pkg_name
 
             for child in tree.get("children", []):
                 child_path = child.get("path", "")
                 if child_path:
-                    all_paths.append(child_path)
+                    all_paths[child_path] = pkg_name
 
     logger.debug(f"收集到 {len(all_paths)} 个已存在的路径")
     return all_paths
