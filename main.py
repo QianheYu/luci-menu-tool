@@ -8,6 +8,10 @@ Usage:
     python3 LuciMenuTool/main.py --scan <feed_path> --export -o output.json
     python3 LuciMenuTool/main.py --scan <feed_path> --apply -i override.json
     python3 LuciMenuTool/main.py --scan <feed_path> --apply -i override.json --dry-run
+    python3 LuciMenuTool/main.py --restore <file_path>
+    python3 LuciMenuTool/main.py --restore-all
+    python3 LuciMenuTool/main.py --list-backups
+    python3 LuciMenuTool/main.py --clean-backups <days>
 """
 
 import argparse
@@ -106,6 +110,12 @@ def main():
     )
 
     parser.add_argument(
+        "--restore-all",
+        action="store_true",
+        help="Restore all files from backups"
+    )
+
+    parser.add_argument(
         "--list-backups",
         action="store_true",
         help="List all backups"
@@ -135,6 +145,10 @@ def main():
 
     if args.restore:
         restore_backup(backup_manager, args.restore)
+        return
+
+    if args.restore_all:
+        restore_all_backups(backup_manager)
         return
 
     if args.clean_backups:
@@ -620,6 +634,46 @@ def restore_backup(backup_manager: BackupManager, file_path: str):
     else:
         print(f"✗ 恢复文件失败: {file_path}")
         print("提示: 使用 --list-backups 查看可用备份")
+
+
+def restore_all_backups(backup_manager: BackupManager):
+    """恢复所有备份文件
+
+    Args:
+        backup_manager: 备份管理器
+    """
+    backups = backup_manager.list_backups()
+
+    if not backups:
+        print("没有找到任何备份文件")
+        return
+
+    print(f"找到 {len(backups)} 个备份文件")
+    print("=" * 80)
+
+    success_count = 0
+    fail_count = 0
+
+    for backup in backups:
+        original_path = backup['original_path']
+        exists = backup['exists']
+
+        if not exists:
+            print(f"✗ 跳过: {original_path} (备份文件不存在)")
+            fail_count += 1
+            continue
+
+        print(f"正在恢复: {original_path}")
+
+        if backup_manager.restore_backup(Path(original_path)):
+            print(f"✓ 成功恢复: {original_path}")
+            success_count += 1
+        else:
+            print(f"✗ 恢复失败: {original_path}")
+            fail_count += 1
+        print("-" * 80)
+
+    print(f"\n恢复完成: 成功 {success_count} 个，失败 {fail_count} 个")
 
 
 def clean_backups(backup_manager: BackupManager, days: int):
