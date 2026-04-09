@@ -365,6 +365,7 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
     feed_dir = Path(feed_path)
     applied = 0
     failed = 0
+    failed_packages = []  # 记录失败的包名和原因
 
     # 初始化验证器和错误处理器
     validator = Validator(logger)
@@ -409,6 +410,7 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
                 if suggestion:
                     print(f"    建议: {suggestion}")
             failed += 1
+            failed_packages.append((pkg_name, "验证失败"))
             continue
 
         if validation_result.warnings:
@@ -443,6 +445,7 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
                                f"Package: {pkg_name}, File: {file_path}")
                 print(f"Warning: Source file '{source_file}' not found for {pkg_name}.")
                 failed += 1
+                failed_packages.append((pkg_name, "源文件未找到"))
                 continue
 
             if source == "menu.d":
@@ -457,6 +460,7 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
                                f"Package: {pkg_name}")
                 print(f"Warning: Unknown source type '{source}' for {pkg_name}.")
                 failed += 1
+                failed_packages.append((pkg_name, f"未知的源类型: {source}"))
                 continue
 
             # 验证文件
@@ -473,6 +477,7 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
                     if suggestion:
                         print(f"    建议: {suggestion}")
                 failed += 1
+                failed_packages.append((pkg_name, "文件验证失败"))
                 continue
 
             if file_validation.warnings:
@@ -502,11 +507,15 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
                 logger.log_file_end(source_file, False, len(changes))
                 print(f"Error updating {pkg_name}: {e}")
                 failed += 1
+                failed_packages.append((pkg_name, f"应用失败: {str(e)}"))
 
     logger.info(f"应用完成: 成功 {applied} 个，失败 {failed} 个")
     print(f"Applied {applied} overrides")
     if failed > 0:
         print(f"Failed: {failed} packages")
+        print("\n失败的包列表:")
+        for pkg_name, reason in failed_packages:
+            print(f"  - {pkg_name}: {reason}")
 
 
 def _collect_all_paths(feed_dir: Path, overrides: Dict, logger) -> Dict[str, str]:
