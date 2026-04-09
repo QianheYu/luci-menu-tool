@@ -41,12 +41,13 @@ class Validator:
         """
         self.logger = logger or get_logger()
 
-    def validate_changes(self, changes: List[Change], existing_paths: Dict[str, str] = None) -> ValidationResult:
+    def validate_changes(self, changes: List[Change], existing_paths: Dict[str, str] = None, force: bool = False) -> ValidationResult:
         """验证修改列表
 
         Args:
             changes: 修改列表
             existing_paths: 已存在的路径到包名的映射字典（用于检测路径冲突）
+            force: 是否强制应用（忽略路径冲突）
 
         Returns:
             ValidationResult 验证结果
@@ -57,8 +58,8 @@ class Validator:
             result.add_warning("没有需要应用的修改")
             return result
 
-        # 检查路径冲突
-        if existing_paths:
+        # 检查路径冲突（除非强制模式）
+        if existing_paths and not force:
             path_conflicts = self._check_path_conflicts(changes, existing_paths)
             for conflict in path_conflicts:
                 result.add_error(conflict)

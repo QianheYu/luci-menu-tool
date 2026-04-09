@@ -70,6 +70,12 @@ def main():
     )
 
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force apply changes even when path conflicts exist"
+    )
+
+    parser.add_argument(
         "--log-dir",
         type=str,
         help="Directory to store log files (default: no file logging)"
@@ -142,7 +148,7 @@ def main():
             export_packages(packages, args.output, logger)
         elif args.apply and args.input:
             apply_override(args.scan, args.input, dry_run=args.dry_run, logger=logger,
-                         backup_manager=backup_manager, no_backup=args.no_backup)
+                         backup_manager=backup_manager, no_backup=args.no_backup, force=args.force)
         else:
             for pkg_name, info in packages.items():
                 trees_summary = []
@@ -324,7 +330,7 @@ def export_packages(packages: Dict[str, Dict], output_path: str, logger):
 
 
 def apply_override(feed_path: str, input_path: str, dry_run: bool = False, 
-                logger=None, backup_manager=None, no_backup=False):
+                logger=None, backup_manager=None, no_backup=False, force=False):
     """Apply override configuration."""
     if logger is None:
         logger = get_logger()
@@ -376,7 +382,7 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
         logger.info(f"处理包: {pkg_name} ({len(changes)} 个修改)")
 
         # 验证修改
-        validation_result = validator.validate_changes(changes, all_existing_paths)
+        validation_result = validator.validate_changes(changes, all_existing_paths, force=force)
         if validation_result.errors:
             logger.log_error("VALIDATION_ERROR", 
                            f"包 '{pkg_name}' 验证失败",
