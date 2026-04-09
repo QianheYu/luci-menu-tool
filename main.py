@@ -410,7 +410,9 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
                 if suggestion:
                     print(f"    建议: {suggestion}")
             failed += 1
-            failed_packages.append((pkg_name, "验证失败"))
+            # 将验证错误信息合并为一个字符串
+            error_details = "; ".join(validation_result.errors)
+            failed_packages.append((pkg_name, f"验证失败: {error_details}"))
             continue
 
         if validation_result.warnings:
@@ -477,7 +479,9 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
                     if suggestion:
                         print(f"    建议: {suggestion}")
                 failed += 1
-                failed_packages.append((pkg_name, "文件验证失败"))
+                # 将文件验证错误信息合并为一个字符串
+                error_details = "; ".join(file_validation.errors)
+                failed_packages.append((pkg_name, f"文件验证失败: {error_details}"))
                 continue
 
             if file_validation.warnings:
