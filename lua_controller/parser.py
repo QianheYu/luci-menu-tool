@@ -47,6 +47,9 @@ class LuaControllerParser(BaseParser):
         except OSError:
             return []
 
+        # 预处理：移除不必要的转义字符（如 \/）
+        content = re.sub(r'\\/', '/', content)
+
         # Try AST parsing first
         try:
             tree = _try_ast_parse(content)
