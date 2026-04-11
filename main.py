@@ -395,6 +395,7 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
             continue
 
         logger.info(f"处理包: {pkg_name} ({len(changes)} 个修改)")
+        logger.log_separator()
 
         # 验证修改
         validation_result = validator.validate_changes(changes, all_existing_paths, force=force)
@@ -502,14 +503,16 @@ def apply_override(feed_path: str, input_path: str, dry_run: bool = False,
             try:
                 applier.apply(source_file, changes)
                 logger.log_file_end(source_file, True, len(changes))
-                print(f"Updated {pkg_name}")
+                logger.info(f"成功应用修改到 {pkg_name}")
+                logger.log_separator(suffix="\n")
                 applied += 1
             except Exception as e:
                 logger.log_error("APPLY_ERROR", 
                                f"Error updating {pkg_name}: {e}",
                                f"File: {source_file}, Changes: {len(changes)}")
                 logger.log_file_end(source_file, False, len(changes))
-                print(f"Error updating {pkg_name}: {e}")
+                logger.error(f"应用失败: {pkg_name}: {e}", exc_info=True)
+                logger.log_separator(suffix="\n")
                 failed += 1
                 failed_packages.append((pkg_name, f"应用失败: {str(e)}"))
 

@@ -70,9 +70,13 @@ class Logger:
         """记录错误级别日志"""
         self.logger.error(message)
 
+    def log_separator(self, prefix: str = "", suffix: str = ""):
+        """打印分隔符"""
+        self.info(f"{prefix}{'='*60}{suffix}")
+
     def log_file_start(self, file_path: Path):
         """记录开始处理文件"""
-        self.info(f"\n{'='*60}")
+        # self.info(f"\n{'='*60}")
         self.info(f"处理文件: {file_path}")
         self.debug(f"文件绝对路径: {file_path.absolute()}")
 
@@ -80,7 +84,7 @@ class Logger:
         """记录文件处理结束"""
         status = "成功" if success else "失败"
         self.info(f"文件处理{status}: {file_path} (修改数量: {changes_count})")
-        self.info(f"{'='*60}\n")
+        # self.info(f"{'='*60}\n")
 
     def log_change(self, change_type: str, old_value: str, new_value: str, details: str = ""):
         """记录修改详情"""

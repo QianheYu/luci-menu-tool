@@ -40,6 +40,13 @@ class LuaControllerApplier(BaseApplier):
             return
 
         variables = self._extract_variables(tree)
+
+        # Try to infer appname from source file path
+        # For packages like luci-app-passwall2, appname is typically "passwall2"
+        appname_match = re.search(r'luci-app-([a-zA-Z0-9_-]+)', str(source_path))
+        if appname_match and 'appname' not in variables:
+            variables['appname'] = appname_match.group(1)
+
         # Store on self so _generate_new_entry_code can access it
         self._variables = variables
 

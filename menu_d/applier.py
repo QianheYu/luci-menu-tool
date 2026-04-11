@@ -173,9 +173,15 @@ class MenuDApplier(BaseApplier):
             return content
 
         if old_order is not None:
-            order_pattern = re.compile(r'("order"\s*:\s*)(-?\d+)')
+            # Match both numeric and string order values: "order": 123 or "order": "123"
+            order_pattern = re.compile(r'("order"\s*:\s*)(-?\d+|"[^"]*")')
             match = order_pattern.search(content, brace_pos, block_end)
             if match:
+                # Get the matched value and strip quotes if it's a string
+                matched_value = match.group(2)
+                if matched_value.startswith('"') and matched_value.endswith('"'):
+                    matched_value = matched_value[1:-1]
+                # Replace the entire value (including quotes if present)
                 return content[:match.start(2)] + str(new_order) + content[match.end(2):]
 
         # Insert before the closing brace of the entry block.
